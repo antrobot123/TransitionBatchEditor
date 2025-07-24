@@ -16,6 +16,8 @@ public class TransitionConditionSplitterWindow : EditorWindow
     private List<ConditionRow> conditionRows = new();
     private ConditionGroupingType selectedGrouping = ConditionGroupingType.ComparisonMode;
     private Dictionary<string, AnimatorControllerParameterType> parameterTypeMap = new();
+    Vector2 scrollPos;
+
 
     [MenuItem("Tools/Condition Splitting Window")]
     public static void ShowWindow()
@@ -145,10 +147,14 @@ public class TransitionConditionSplitterWindow : EditorWindow
         EditorGUILayout.LabelField($"Grouped Conditions: {conditionRows.Count}", EditorStyles.boldLabel);
 
         var grouped = ConditionGrouping.GroupRows(conditionRows, selectedGrouping, parameterTypeMap);
+        scrollPos = EditorGUILayout.BeginScrollView(scrollPos, GUILayout.ExpandHeight(true));
+
         foreach (var kvp in grouped)
         {
             DrawGroupedRow(kvp.Key, kvp.Value);
         }
+        EditorGUILayout.EndScrollView();
+
 
         GUILayout.Space(10);
 
@@ -258,6 +264,8 @@ public class TransitionConditionSplitterWindow : EditorWindow
         }
 
         EditorGUI.showMixedValue = false;
+        GUILayout.FlexibleSpace();
+        EditorGUILayout.LabelField($"{group.Select(r => r.transition).Distinct().Count()}", GUILayout.Width(20));
         EditorGUILayout.EndHorizontal();
     }
 }
