@@ -202,9 +202,9 @@ public class TransitionConditionSplitterWindow : EditorWindow
         EditorGUILayout.LabelField("Bulk Selection Mode", EditorStyles.boldLabel);
         var newMode = (BulkSelectionMode)EditorGUILayout.EnumPopup(bulkMode);
 
-        if (newMode != bulkMode)
+        if (newMode != lastBulkMode)
         {
-            bulkMode = newMode;
+            lastBulkMode = newMode;
             RefreshSelection(); // ✅ Trigger refresh on mode change
         }
 
