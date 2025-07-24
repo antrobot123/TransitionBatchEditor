@@ -5,17 +5,15 @@ using System.Collections.Generic;
 using System.Linq;
 using System;
 
-
 public class TransitionConditionSplitterWindow : EditorWindow
 {
-
     private BulkSelectionMode bulkMode = BulkSelectionMode.SelectedOnly;
     private List<string> specificLayerNames = new();
-
 
     private AnimatorTransitionBase[] selectedTransitions;
     private List<ConditionRow> conditionRows = new();
     private ConditionGroupingType selectedGrouping = ConditionGroupingType.ComparisonMode;
+    private Dictionary<string, AnimatorControllerParameterType> parameterTypeMap = new();
 
     [MenuItem("Tools/Condition Splitting Window")]
     public static void ShowWindow()
@@ -24,9 +22,12 @@ public class TransitionConditionSplitterWindow : EditorWindow
     }
 
     private void OnFocus() => RefreshSelection();
-    private void OnSelectionChange() => RefreshSelection();
+    private void OnSelectionChange()
+    {
+        RefreshSelection();
+        Repaint();
+    }
 
-    private Dictionary<string, AnimatorControllerParameterType> parameterTypeMap = new();
     private bool ShowSelectionWarning()
     {
         bool needsAnimator = bulkMode is BulkSelectionMode.AllLayers or BulkSelectionMode.SpecificLayers;
@@ -49,6 +50,7 @@ public class TransitionConditionSplitterWindow : EditorWindow
 
         return false;
     }
+
     private void BuildParameterTypeMap()
     {
         parameterTypeMap.Clear();
@@ -66,6 +68,7 @@ public class TransitionConditionSplitterWindow : EditorWindow
             }
         }
     }
+
     private List<AnimatorTransitionBase> GetAllTransitions(AnimatorController controller)
     {
         var result = new List<AnimatorTransitionBase>();
@@ -95,13 +98,10 @@ public class TransitionConditionSplitterWindow : EditorWindow
         return result;
     }
 
-
-
     private void RefreshSelection()
     {
         conditionRows.Clear();
         selectedTransitions = Selection.objects.OfType<AnimatorTransitionBase>().ToArray();
-
 
         var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(
             AssetDatabase.GetAssetPath(Selection.activeObject)
@@ -109,11 +109,6 @@ public class TransitionConditionSplitterWindow : EditorWindow
 
         if (controller == null) return;
 
-
-
-        //currentLayerName = Selection.activeObject.name;
-
-       
         List<AnimatorTransitionBase> transitionsToUse = new();
 
         switch (bulkMode)
@@ -143,18 +138,6 @@ public class TransitionConditionSplitterWindow : EditorWindow
 
         BuildParameterTypeMap();
     }
-    private void DrawBulkModeSelector()
-    {
-        EditorGUILayout.LabelField("Bulk Selection Mode", EditorStyles.boldLabel);
-        bulkMode = (BulkSelectionMode)EditorGUILayout.EnumPopup(bulkMode);
-
-        if (bulkMode == BulkSelectionMode.SpecificLayers)
-        {
-            EditorGUILayout.LabelField("Include Layers (comma-separated):");
-            string input = EditorGUILayout.TextField(string.Join(",", specificLayerNames));
-            specificLayerNames = input.Split(',').Select(s => s.Trim()).Where(s => !string.IsNullOrEmpty(s)).ToList();
-        }
-    }
 
     private void OnGUI()
     {
@@ -167,7 +150,7 @@ public class TransitionConditionSplitterWindow : EditorWindow
         EditorGUILayout.Space(10);
         EditorGUILayout.LabelField($"Grouped Conditions: {conditionRows.Count}", EditorStyles.boldLabel);
 
-        var grouped = GetGroupedRows();
+        var grouped = ConditionGrouping.GroupRows(conditionRows, selectedGrouping, parameterTypeMap);
         foreach (var kvp in grouped)
         {
             DrawGroupedRow(kvp.Key, kvp.Value);
@@ -214,57 +197,23 @@ public class TransitionConditionSplitterWindow : EditorWindow
         }
     }
 
+    private void DrawBulkModeSelector()
+    {
+        EditorGUILayout.LabelField("Bulk Selection Mode", EditorStyles.boldLabel);
+        bulkMode = (BulkSelectionMode)EditorGUILayout.EnumPopup(bulkMode);
+
+        if (bulkMode == BulkSelectionMode.SpecificLayers)
+        {
+            EditorGUILayout.LabelField("Include Layers (comma-separated):");
+            string input = EditorGUILayout.TextField(string.Join(",", specificLayerNames));
+            specificLayerNames = input.Split(',').Select(s => s.Trim()).Where(s => !string.IsNullOrEmpty(s)).ToList();
+        }
+    }
+
     private void DrawGroupingSelector()
     {
         EditorGUILayout.LabelField("Group Conditions By", EditorStyles.boldLabel);
         selectedGrouping = (ConditionGroupingType)EditorGUILayout.EnumPopup(selectedGrouping);
-    }
-
-    private Dictionary<string, List<ConditionRow>> GetGroupedRows()
-    {
-        var grouped = conditionRows
-            .GroupBy(GetGroupKey)
-            .ToDictionary(g => g.Key, g => g.Select(r => new ConditionRow(r)).ToList());
-
-        var sortedKeys = selectedGrouping switch
-        {
-            ConditionGroupingType.ParameterType => grouped.Keys
-    .OrderBy(k => Enum.TryParse(k, out AnimatorControllerParameterType type) ? (int)type : int.MaxValue)
-    .ToList(),
-
-            ConditionGroupingType.ParameterName => grouped.Keys.OrderBy(k => k).ToList(),
-
-            ConditionGroupingType.TransitionTitle => grouped.Keys
-                .OrderBy(k => string.IsNullOrEmpty(k)) // unnamed last
-                .ThenBy(k => k).ToList(),
-
-            ConditionGroupingType.ComparisonMode => grouped.Keys
-                .OrderBy(k => Enum.TryParse(k, out AnimatorConditionMode mode) ? (int)mode : int.MaxValue)
-                .ToList(),
-
-            ConditionGroupingType.ThresholdValue => grouped.Keys
-                .OrderBy(k => float.TryParse(k, out float val) ? val : float.MaxValue)
-                .ToList(),
-
-            _ => grouped.Keys.OrderBy(k => k).ToList()
-        };
-
-        return sortedKeys.ToDictionary(k => k, k => grouped[k]);
-    }
-
-
-    private string GetGroupKey(ConditionRow row)
-    {
-        var c = row.condition;
-        return selectedGrouping switch
-        {
-            ConditionGroupingType.ParameterName => c.parameter,
-            ConditionGroupingType.ComparisonMode => c.mode.ToString(),
-            ConditionGroupingType.ThresholdValue => c.threshold.ToString("F2"),
-            ConditionGroupingType.TransitionTitle => row.transition.name,
-            ConditionGroupingType.ParameterType => parameterTypeMap.TryGetValue(c.parameter, out var type) ? type.ToString() : "Unknown",
-            _ => "Ungrouped"
-        };
     }
 
     private void DrawGroupedRow(string groupKey, List<ConditionRow> group)
