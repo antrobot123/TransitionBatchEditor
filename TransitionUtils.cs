@@ -99,5 +99,82 @@ class TransitionUtils
         }
         Debug.Log($"{label}: {transitions.Count} transitions: {temp}");
     }
+    public static List<ConditionRow> CollectTransitionConditionsWithSource(
+    AnimatorController controller,
+    BulkSelectionMode bulkMode,
+    List<string> specificLayerNames,
+    AnimatorTransitionBase[] selectedTransitions)
+{
+    List<ConditionRow> results = new();
+
+    // Choose which transitions to process based on bulk mode
+    List<AnimatorTransitionBase> transitionsToProcess = bulkMode switch
+    {
+        BulkSelectionMode.SelectedOnly => selectedTransitions.ToList(),
+        BulkSelectionMode.AllLayers => GetAllTransitions(controller),
+        BulkSelectionMode.SpecificLayers => GetTransitionsFromLayers(controller, specificLayerNames),
+        _ => new()
+    };
+
+    int globalIndex = 0;
+
+    foreach (var layer in controller.layers)
+    {
+        var sm = layer.stateMachine;
+
+        // Regular state transitions — capture from state name
+        foreach (var state in sm.states)
+        {
+            foreach (var trans in state.state.transitions)
+            {
+                if (!transitionsToProcess.Contains(trans)) continue;
+
+                var conditions = trans.conditions;
+                for (int j = 0; j < conditions.Length; j++)
+                {
+                    var row = new ConditionRow(trans, globalIndex, j, conditions[j]);
+                    row.fromStateName = state.state.name;
+                    results.Add(row);
+                }
+
+                globalIndex++;
+            }
+        }
+
+        // Any State transitions
+        foreach (var trans in sm.anyStateTransitions)
+        {
+            if (!transitionsToProcess.Contains(trans)) continue;
+
+            var conditions = trans.conditions;
+            for (int j = 0; j < conditions.Length; j++)
+            {
+                var row = new ConditionRow(trans, globalIndex, j, conditions[j]);
+                row.fromStateName = "Any State";
+                results.Add(row);
+            }
+
+            globalIndex++;
+        }
+
+        // Entry transitions
+        foreach (var trans in sm.entryTransitions)
+        {
+            if (!transitionsToProcess.Contains(trans)) continue;
+
+            var conditions = trans.conditions;
+            for (int j = 0; j < conditions.Length; j++)
+            {
+                var row = new ConditionRow(trans, globalIndex, j, conditions[j]);
+                row.fromStateName = "Entry";
+                results.Add(row);
+            }
+
+            globalIndex++;
+        }
+    }
+
+    return results;
+}
 }
 

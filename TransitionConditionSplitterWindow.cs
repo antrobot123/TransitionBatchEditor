@@ -131,6 +131,9 @@ public class TransitionConditionSplitterWindow : EditorWindow
                 conditionRows.Add(new ConditionRow(t, i, j, conditions[j]));
             }
         }
+        conditionRows = TransitionUtils.CollectTransitionConditionsWithSource(
+            controller, bulkMode, specificLayerNames, selectedTransitions
+        );
 
         BuildParameterTypeMap();
     }
@@ -265,7 +268,7 @@ public class TransitionConditionSplitterWindow : EditorWindow
 
         EditorGUI.showMixedValue = false;
         GUILayout.FlexibleSpace();
-        EditorGUILayout.LabelField($"{group.Select(r => r.transition).Distinct().Count()}", GUILayout.Width(20));
+        EditorGUILayout.LabelField($"{group.Select(r => r.transition).Distinct().Count()}", GUILayout.Width(25));
         EditorGUILayout.EndHorizontal();
     }
 }

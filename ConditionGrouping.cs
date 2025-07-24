@@ -6,11 +6,14 @@ using UnityEngine;
 
 public enum ConditionGroupingType
 {
-    ParameterName,
-    ComparisonMode,
-    ThresholdValue,
-    TransitionTitle,
-    ParameterType
+    ParameterName, // Group by transition parameter
+    ComparisonMode, //group by transition comparison (Equals, NotEqual, Greater, Less)
+    ThresholdValue, //group by transition threshold value
+    TransitionTitle, //group by transition title
+    ParameterType, //group by transition parameter type (Int, Float, Bool, Trigger)
+    FromNode, //group by what node the transition comes from
+    ToNode, //group by what node the transition goes to
+    All //group all transitions into a single group
 }
 
 public static class ConditionGrouping
@@ -20,33 +23,56 @@ public static class ConditionGrouping
         ConditionGroupingType groupingType,
         Dictionary<string, AnimatorControllerParameterType> parameterTypeMap)
     {
+        // Step 1: Create a lookup where each key maps to a list of grouped rows
         var grouped = rows
-            .GroupBy(row => GetGroupKey(row, groupingType, parameterTypeMap))
-            .ToDictionary(g => g.Key, g => g.Select(r => new ConditionRow(r)).ToList());
+            .GroupBy(row => GetGroupKey(row, groupingType, parameterTypeMap))      // Group rows by their assigned key
+            .ToDictionary(                                                         // Convert groupings to a dictionary
+                g => g.Key,
+                g => g.Select(r => new ConditionRow(r)).ToList());                // Copy rows into new lists
 
-        List<string> sortedKeys = groupingType switch
+        // Step 2: Sort the keys using a mode-specific strategy
+        var sortedKeys = groupingType switch
         {
+            // Sort parameter types by enum order
             ConditionGroupingType.ParameterType => grouped.Keys
-                .OrderBy(k => Enum.TryParse(k, out AnimatorControllerParameterType type) ? (int)type : int.MaxValue)
+                .OrderBy(k => Enum.TryParse(k, out AnimatorControllerParameterType type)
+                    ? (int)type
+                    : int.MaxValue)
                 .ToList(),
 
-            ConditionGroupingType.ParameterName => grouped.Keys.OrderBy(k => k).ToList(),
-
-            ConditionGroupingType.TransitionTitle => grouped.Keys
-                .OrderBy(k => string.IsNullOrEmpty(k))
-                .ThenBy(k => k).ToList(),
-
+            // Sort comparison modes by enum value
             ConditionGroupingType.ComparisonMode => grouped.Keys
-                .OrderBy(k => Enum.TryParse(k, out AnimatorConditionMode mode) ? (int)mode : int.MaxValue)
+                .OrderBy(k => Enum.TryParse(k, out AnimatorConditionMode mode)
+                    ? (int)mode
+                    : int.MaxValue)
                 .ToList(),
 
+            // Sort thresholds numerically
             ConditionGroupingType.ThresholdValue => grouped.Keys
-                .OrderBy(k => float.TryParse(k, out float val) ? val : float.MaxValue)
+                .OrderBy(k => float.TryParse(k, out float val)
+                    ? val
+                    : float.MaxValue)
                 .ToList(),
 
+            // Sort by transition name, putting unnamed ones last
+            ConditionGroupingType.TransitionTitle => grouped.Keys
+                .OrderBy(k => string.IsNullOrEmpty(k))        // true = after named
+                .ThenBy(k => k)
+                .ToList(),
+
+            // Sort special nodes first (Any State, Entry, Exit)
+            ConditionGroupingType.FromNode or ConditionGroupingType.ToNode => grouped.Keys
+                .OrderBy(k => k == "Any State" ? 0 :
+                              k == "Entry" ? 1 :
+                              k == "Exit" ? 2 : 3)
+                .ThenBy(k => k)
+                .ToList(),
+
+            // Alphabetical sort fallback
             _ => grouped.Keys.OrderBy(k => k).ToList()
         };
 
+        // Step 3: Build a new dictionary using the sorted key order
         return sortedKeys.ToDictionary(k => k, k => grouped[k]);
     }
 
@@ -55,15 +81,42 @@ public static class ConditionGrouping
         ConditionGroupingType groupingType,
         Dictionary<string, AnimatorControllerParameterType> parameterTypeMap)
     {
-        var c = row.condition;
+        AnimatorCondition c = row.condition;
+
         return groupingType switch
         {
+            // Group by the name of the parameter driving the condition
             ConditionGroupingType.ParameterName => c.parameter,
+
+            // Group by the comparison type: Equals, Greater, etc.
             ConditionGroupingType.ComparisonMode => c.mode.ToString(),
+
+            // Group by numeric threshold, rounded for consistency
             ConditionGroupingType.ThresholdValue => c.threshold.ToString("F2"),
+
+            // Group by the name of the transition asset
             ConditionGroupingType.TransitionTitle => row.transition.name,
+
+            // Group by parameter type (Float, Int, Bool) using lookup map
             ConditionGroupingType.ParameterType =>
-                parameterTypeMap.TryGetValue(c.parameter, out var type) ? type.ToString() : "Unknown",
+                parameterTypeMap.TryGetValue(c.parameter, out var type)
+                    ? type.ToString()
+                    : "Unknown",
+
+            // Group by transition's source node name (or "Any State")
+            ConditionGroupingType.FromNode =>
+                row.transition is AnimatorStateTransition fromTrans
+                    ? row.fromStateName ?? "Any State"
+                    : "Any State",
+
+            // Group by transition's destination node name (or "Exit")
+            ConditionGroupingType.ToNode =>
+                row.transition.destinationState?.name ?? "Exit",
+
+            // All rows go into one group
+            ConditionGroupingType.All => "All",
+
+            // Fallback
             _ => "Ungrouped"
         };
     }

@@ -10,14 +10,17 @@ public class ConditionRow
         public bool mixedParameter;
         public bool mixedMode;
         public bool mixedThreshold;
+        
+        public string fromStateName; // 🧠 stores the source node name
+
 
         public ConditionRow(AnimatorTransitionBase transition, int transitionIndex, int conditionIndex, AnimatorCondition condition)
-        {
-            this.transition = transition;
-            this.transitionIndex = transitionIndex;
-            this.conditionIndex = conditionIndex;
-            this.condition = condition;
-        }
+    {
+        this.transition = transition;
+        this.transitionIndex = transitionIndex;
+        this.conditionIndex = conditionIndex;
+        this.condition = condition;
+    }
 
         public ConditionRow(ConditionRow source)
         {
