@@ -94,7 +94,26 @@ public class TransitionConditionSplitterWindow : EditorWindow
         return null;
     }
 
+    private void DrawBulkModeSelector()
+    {
+        EditorGUILayout.LabelField("Bulk Selection Mode", EditorStyles.boldLabel);
+        var newMode = (BulkSelectionMode)EditorGUILayout.EnumPopup(bulkMode);
 
+        if (newMode != lastBulkMode)
+        {
+            lastBulkMode = newMode;
+            bulkMode = newMode;
+            RefreshSelection(); // ✅ Trigger refresh on mode change
+        }
+
+
+        if (bulkMode == BulkSelectionMode.SpecificLayers)
+        {
+            EditorGUILayout.LabelField("Include Layers (comma-separated):");
+            string input = EditorGUILayout.TextField(string.Join(",", specificLayerNames));
+            specificLayerNames = input.Split(',').Select(s => s.Trim()).Where(s => !string.IsNullOrEmpty(s)).ToList();
+        }
+    }
 
     private void RefreshSelection()
     {
@@ -200,25 +219,7 @@ public class TransitionConditionSplitterWindow : EditorWindow
         }
     }
 
-    private void DrawBulkModeSelector()
-    {
-        EditorGUILayout.LabelField("Bulk Selection Mode", EditorStyles.boldLabel);
-        var newMode = (BulkSelectionMode)EditorGUILayout.EnumPopup(bulkMode);
 
-        if (newMode != lastBulkMode)
-        {
-            lastBulkMode = newMode;
-            RefreshSelection(); // ✅ Trigger refresh on mode change
-        }
-
-
-        if (bulkMode == BulkSelectionMode.SpecificLayers)
-        {
-            EditorGUILayout.LabelField("Include Layers (comma-separated):");
-            string input = EditorGUILayout.TextField(string.Join(",", specificLayerNames));
-            specificLayerNames = input.Split(',').Select(s => s.Trim()).Where(s => !string.IsNullOrEmpty(s)).ToList();
-        }
-    }
 
     private void DrawGroupingSelector()
     {
