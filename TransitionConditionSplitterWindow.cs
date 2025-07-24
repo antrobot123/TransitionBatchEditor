@@ -9,6 +9,8 @@ public class TransitionConditionSplitterWindow : EditorWindow
 {
     private BulkSelectionMode bulkMode = BulkSelectionMode.SelectedOnly;
     private List<string> specificLayerNames = new();
+    private BulkSelectionMode lastBulkMode = BulkSelectionMode.SelectedOnly;
+
 
     private AnimatorTransitionBase[] selectedTransitions;
     private List<ConditionRow> conditionRows = new();
@@ -33,7 +35,7 @@ public class TransitionConditionSplitterWindow : EditorWindow
         bool needsAnimator = bulkMode is BulkSelectionMode.AllLayers or BulkSelectionMode.SpecificLayers;
         bool needsTransition = bulkMode is BulkSelectionMode.SelectedOnly;
 
-        bool hasAnimator = Selection.activeObject is AnimatorController;
+        bool hasAnimator = ResolveControllerFromSelection() != null;
         bool hasTransition = Selection.objects.OfType<AnimatorTransitionBase>().Any();
 
         if (needsAnimator && !hasAnimator)
@@ -69,43 +71,35 @@ public class TransitionConditionSplitterWindow : EditorWindow
         }
     }
 
-    private List<AnimatorTransitionBase> GetAllTransitions(AnimatorController controller)
+    private AnimatorController ResolveControllerFromSelection()
     {
-        var result = new List<AnimatorTransitionBase>();
-        foreach (var layer in controller.layers)
+        // Case 1: Direct selection
+        if (Selection.activeObject is AnimatorController direct)
+            return direct;
+
+        // Case 2: Transition or state machine selected
+        foreach (var obj in Selection.objects)
         {
-            var sm = layer.stateMachine;
-            foreach (var state in sm.states)
-                result.AddRange(state.state.transitions);
-            result.AddRange(sm.anyStateTransitions);
-            result.AddRange(sm.entryTransitions);
+            var path = AssetDatabase.GetAssetPath(obj);
+            if (!string.IsNullOrEmpty(path))
+            {
+                var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(path);
+                if (controller != null)
+                    return controller;
+            }
         }
-        return result;
+
+        return null;
     }
 
-    private List<AnimatorTransitionBase> GetTransitionsFromLayers(AnimatorController controller, List<string> layerNames)
-    {
-        var result = new List<AnimatorTransitionBase>();
-        foreach (var layer in controller.layers)
-        {
-            if (!layerNames.Contains(layer.name)) continue;
-            var sm = layer.stateMachine;
-            foreach (var state in sm.states)
-                result.AddRange(state.state.transitions);
-            result.AddRange(sm.anyStateTransitions);
-            result.AddRange(sm.entryTransitions);
-        }
-        return result;
-    }
+
 
     private void RefreshSelection()
     {
         conditionRows.Clear();
         selectedTransitions = Selection.objects.OfType<AnimatorTransitionBase>().ToArray();
 
-        var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(
-            AssetDatabase.GetAssetPath(Selection.activeObject)
-        );
+        var controller = ResolveControllerFromSelection();
 
         if (controller == null) return;
 
@@ -118,11 +112,11 @@ public class TransitionConditionSplitterWindow : EditorWindow
                 break;
 
             case BulkSelectionMode.AllLayers:
-                transitionsToUse.AddRange(GetAllTransitions(controller));
+                transitionsToUse.AddRange(TransitionUtils.GetAllTransitions(controller));
                 break;
 
             case BulkSelectionMode.SpecificLayers:
-                transitionsToUse.AddRange(GetTransitionsFromLayers(controller, specificLayerNames));
+                transitionsToUse.AddRange(TransitionUtils.GetTransitionsFromLayers(controller, specificLayerNames));
                 break;
         }
 
@@ -200,7 +194,14 @@ public class TransitionConditionSplitterWindow : EditorWindow
     private void DrawBulkModeSelector()
     {
         EditorGUILayout.LabelField("Bulk Selection Mode", EditorStyles.boldLabel);
-        bulkMode = (BulkSelectionMode)EditorGUILayout.EnumPopup(bulkMode);
+        var newMode = (BulkSelectionMode)EditorGUILayout.EnumPopup(bulkMode);
+
+        if (newMode != bulkMode)
+        {
+            bulkMode = newMode;
+            RefreshSelection(); // ✅ Trigger refresh on mode change
+        }
+
 
         if (bulkMode == BulkSelectionMode.SpecificLayers)
         {
