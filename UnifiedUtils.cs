@@ -1,99 +1,15 @@
+using System;
+using System.Collections.Generic;
+using UnityEditor;
+using UnityEditor.Animations;
+using UnityEngine;
 public static class UnifiedUtils
 {
-    public static bool TryGetUnifiedFloat(
+    public static bool TryGetUnifiedValue<T>(
         AnimatorTransitionBase[] transitions,
-        System.Func<AnimatorStateTransition, float> selector,
-        out float unifiedValue
+        Func<AnimatorStateTransition, T> selector,
+        out T unifiedValue
     )
-    {
-        unifiedValue = 0f;
-        bool hasReference = false;
-
-        foreach (var t in transitions)
-        {
-            if (t is AnimatorStateTransition stateTransition)
-            {
-                float value = selector(stateTransition);
-                if (!hasReference)
-                {
-                    unifiedValue = value;
-                    hasReference = true;
-                }
-                else if (!Mathf.Approximately(unifiedValue, value))
-                {
-                    return false;
-                }
-            }
-        }
-
-        return hasReference;
-    }
-
-    public static bool TryGetUnifiedBool(
-        AnimatorTransitionBase[] transitions,
-        System.Func<AnimatorStateTransition, bool> selector,
-        out bool unifiedValue
-    )
-    {
-        unifiedValue = false;
-        bool hasReference = false;
-
-        foreach (var t in transitions)
-        {
-            if (t is AnimatorStateTransition stateTransition)
-            {
-                bool value = selector(stateTransition);
-                if (!hasReference)
-                {
-                    unifiedValue = value;
-                    hasReference = true;
-                }
-                else if (unifiedValue != value)
-                {
-                    return false;
-                }
-            }
-        }
-
-        return hasReference;
-    }
-
-    public static float DrawUnifiedFloatField(
-        string label,
-        AnimatorTransitionBase[] transitions,
-        System.Func<AnimatorStateTransition, float> selector,
-        ref float cachedValue
-    )
-    {
-        bool isUnified = TryGetUnifiedFloat(transitions, selector, out float liveValue);
-        if (isUnified) cachedValue = liveValue;
-
-        EditorGUI.showMixedValue = !isUnified;
-        float newValue = EditorGUILayout.FloatField(label, cachedValue);
-        EditorGUI.showMixedValue = false;
-        return newValue;
-    }
-
-    public static bool DrawUnifiedBoolField(
-        string label,
-        AnimatorTransitionBase[] transitions,
-        System.Func<AnimatorStateTransition, bool> selector,
-        ref bool cachedValue
-    )
-    {
-        bool isUnified = TryGetUnifiedBool(transitions, selector, out bool liveValue);
-        if (isUnified) cachedValue = liveValue;
-
-        EditorGUI.showMixedValue = !isUnified;
-        bool newValue = EditorGUILayout.Toggle(label, cachedValue);
-        EditorGUI.showMixedValue = false;
-        return newValue;
-    }
-    public static bool TryGetUnifiedEnum<TEnum>(
-    AnimatorTransitionBase[] transitions,
-    Func<AnimatorStateTransition, TEnum> selector,
-    out TEnum unifiedValue
-) where TEnum : struct, Enum
     {
         unifiedValue = default;
         bool hasReference = false;
@@ -102,13 +18,13 @@ public static class UnifiedUtils
         {
             if (t is AnimatorStateTransition stateTransition)
             {
-                TEnum value = selector(stateTransition);
+                T value = selector(stateTransition);
                 if (!hasReference)
                 {
                     unifiedValue = value;
                     hasReference = true;
                 }
-                else if (!EqualityComparer<TEnum>.Default.Equals(unifiedValue, value))
+                else if (!EqualityComparer<T>.Default.Equals(unifiedValue, value))
                 {
                     return false;
                 }
@@ -117,18 +33,65 @@ public static class UnifiedUtils
 
         return hasReference;
     }
-    public static TEnum DrawUnifiedEnumPopup<TEnum>(
-    string label,
-    AnimatorTransitionBase[] transitions,
-    Func<AnimatorStateTransition, TEnum> selector,
-    ref TEnum cachedValue
-) where TEnum : struct, Enum
+
+    public static T DrawUnifiedInputField<T>(
+        string label,
+        AnimatorTransitionBase[] transitions,
+        Func<AnimatorStateTransition, T> selector,
+        ref T cachedValue,
+        Func<string, T, T> fieldRenderer
+    )
     {
-        bool isUnified = TryGetUnifiedEnum(transitions, selector, out TEnum liveValue);
+        bool isUnified = TryGetUnifiedValue(transitions, selector, out T liveValue);
         if (isUnified) cachedValue = liveValue;
 
         EditorGUI.showMixedValue = !isUnified;
-        TEnum newValue = (TEnum)EditorGUILayout.EnumPopup(label, cachedValue);
+        T newValue = fieldRenderer(label, cachedValue);
+        EditorGUI.showMixedValue = false;
+
+        return newValue;
+    }
+
+    public static T DrawUnifiedPopup<T>(
+        string label,
+        AnimatorTransitionBase[] transitions,
+        Func<AnimatorStateTransition, T> selector,
+        ref T cachedValue,
+        List<T> options
+    )
+    {
+        bool isUnified = TryGetUnifiedValue(transitions, selector, out T liveValue);
+        if (isUnified) cachedValue = liveValue;
+
+        // Prepare display names
+        var displayOptions = new string[options.Count];
+        for (var i = 0; i < options.Count; i++)
+        {
+            displayOptions[i] = options[i]?.ToString() ?? "<null>";
+        }
+
+        var currentIndex = options.IndexOf(cachedValue);
+        if (currentIndex < 0) currentIndex = 0;
+
+        EditorGUI.showMixedValue = !isUnified;
+        var newIndex = EditorGUILayout.Popup(label, currentIndex, displayOptions);
+        EditorGUI.showMixedValue = false;
+
+        return options[Mathf.Clamp(newIndex, 0, options.Count - 1)];
+    }
+
+    public static bool DrawUnifiedToggle(
+        string label,
+        AnimatorTransitionBase[] transitions,
+        Func<AnimatorStateTransition, bool> selector,
+        ref bool cachedValue
+    )
+    {
+        bool isUnified = TryGetUnifiedValue(transitions, selector, out bool liveValue);
+        if (isUnified) cachedValue = liveValue;
+
+        EditorGUI.showMixedValue = !isUnified;
+        bool newValue = EditorGUILayout.Toggle(label, cachedValue);
         EditorGUI.showMixedValue = false;
 
         return newValue;
