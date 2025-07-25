@@ -141,10 +141,27 @@ public class TransitionConditionSplitterWindow : EditorWindow
         }
     }
 
-    private void DrawGroupingSelector()
+    private bool DrawGroupingSelector()
     {
         EditorGUILayout.LabelField("Group Conditions By", EditorStyles.boldLabel);
-        selectedGrouping = (ConditionGroupingType)EditorGUILayout.EnumPopup(selectedGrouping);
+
+        useComplexGrouping = EditorGUILayout.ToggleLeft("Use Complex Grouping", useComplexGrouping);
+
+        if (!useComplexGrouping)
+        {
+            selectedGrouping = (ConditionGroupingType)EditorGUILayout.EnumPopup(selectedGrouping);
+        }
+        else
+        {
+            if (GUILayout.Button("Configure Complex Grouping..."))
+                ComplexGroupingWindow.ShowWindow(); // 👇 opens the composer
+        }
+        if (useComplexGrouping && ComplexGroupingConfig.CurrentRules.Count == 0)
+        {
+            EditorGUILayout.HelpBox("No rules selected. Open Configurator to add.", MessageType.Info);
+            return false;
+        }
+        return true;
     }
 
     private void DrawGroupedRow(string groupKey, List<ConditionRow> group)
@@ -240,7 +257,7 @@ public class TransitionConditionSplitterWindow : EditorWindow
 
         DrawBulkModeSelector();
         if (ShowSelectionWarning()) return;
-        DrawGroupingSelector();
+        if (!DrawGroupingSelector()) return;
 
         EditorGUILayout.Space(10);
         EditorGUILayout.LabelField($"Grouped Conditions: {conditionRows.Count}", EditorStyles.boldLabel);
