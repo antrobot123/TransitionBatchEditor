@@ -15,6 +15,19 @@ public enum ConditionGroupingType
     ToNode, //group by what node the transition goes to
     All //group all transitions into a single group
 }
+#nullable enable
+public struct GroupingContext
+{
+    public ConditionGroupingType Type;
+    public Dictionary<string, AnimatorControllerParameterType>? ParameterTypeMap; // null for types that don't need it
+
+    public GroupingContext(ConditionGroupingType type, Dictionary<string, AnimatorControllerParameterType>? map = null)
+    {
+        Type = type;
+        ParameterTypeMap = map;
+    }
+}
+
 
 public static class ConditionGrouping
 {
@@ -119,5 +132,32 @@ public static class ConditionGrouping
             // Fallback
             _ => "Ungrouped"
         };
+    }
+    public static string GetCompositeGroupKey(ConditionRow row, List<GroupingContext> contexts)
+    {
+        var keys = new List<string>();
+        foreach (var ctx in contexts)
+        {
+            keys.Add(GetGroupKey(row, ctx.Type, ctx.ParameterTypeMap ?? new()));
+        }
+        return string.Join("__", keys);
+    }
+    public static IEnumerable<ConditionRow> SortRows(
+        IEnumerable<ConditionRow> rows,
+        List<GroupingContext> contexts)
+    {
+        IOrderedEnumerable<ConditionRow>? sorted = null;
+
+        foreach (var ctx in contexts)
+        {
+            Func<ConditionRow, object> keySelector = row =>
+                GetGroupKey(row, ctx.Type, ctx.ParameterTypeMap ?? new());
+
+            sorted = sorted == null
+                ? rows.OrderBy(keySelector)
+                : sorted.ThenBy(keySelector);
+        }
+
+        return sorted ?? rows;
     }
 }

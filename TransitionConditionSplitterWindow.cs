@@ -17,6 +17,11 @@ public class TransitionConditionSplitterWindow : EditorWindow
     private ConditionGroupingType selectedGrouping = ConditionGroupingType.ComparisonMode;
     private Dictionary<string, AnimatorControllerParameterType> parameterTypeMap = new();
     Vector2 scrollPos;
+    private string layerInputBuffer = "";
+    private bool useComplexGrouping = false;
+
+
+
 
 
     [MenuItem("Tools/Condition Splitting Window")]
@@ -110,8 +115,29 @@ public class TransitionConditionSplitterWindow : EditorWindow
         if (bulkMode == BulkSelectionMode.SpecificLayers)
         {
             EditorGUILayout.LabelField("Include Layers (comma-separated):");
-            string input = EditorGUILayout.TextField(string.Join(",", specificLayerNames));
-            specificLayerNames = input.Split(',').Select(s => s.Trim()).Where(s => !string.IsNullOrEmpty(s)).ToList();
+
+            // Initialize buffer if needed
+            if (string.IsNullOrEmpty(layerInputBuffer))
+                layerInputBuffer = string.Join(",", specificLayerNames);
+
+            GUI.SetNextControlName("LayerInputField");
+            string newInput = EditorGUILayout.TextField(layerInputBuffer);
+
+            // Detect change and apply immediately
+            if (newInput != layerInputBuffer)
+            {
+                layerInputBuffer = newInput;
+                specificLayerNames = layerInputBuffer.Split(',')
+                    .Select(s => s.Trim())
+                    .Where(s => !string.IsNullOrEmpty(s))
+                    .ToList();
+                RefreshSelection();
+                Repaint();
+            }
+        }
+        else
+        {
+            layerInputBuffer = "";
         }
     }
 
