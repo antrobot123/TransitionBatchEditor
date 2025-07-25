@@ -20,9 +20,31 @@ public class TransitionConditionSplitterWindow : EditorWindow
     private string layerInputBuffer = "";
     private bool useComplexGrouping = false;
 
+    private void Serialize(){
+        //BulkSelectionMode
+        EditorPrefs.SetInt("TransitionEditor/BulkSelectionMode", (int)bulkMode);
+        //specificLayerNames
+        EditorPrefs.SetString("TransitionEditor/SpecificLayerNames", string.Join(",", specificLayerNames));
+        //useComplexGrouping
+        EditorPrefs.SetBool("TransitionEditor/UseComplexGrouping", useComplexGrouping);
+        //ComparisonMode
+        EditorPrefs.SetInt("TransitionEditor/ComparisonMode", (int)selectedGrouping);
+    }
+    private void Deserialize(){
+        //BulkSelectionMode
+        bulkMode = (BulkSelectionMode)EditorPrefs.GetInt("TransitionEditor/BulkSelectionMode");
+        //specificLayerNames
+        specificLayerNames = EditorPrefs.GetString("TransitionEditor/SpecificLayerNames").Split(',').Select(s => s.Trim()).ToList();
+        //useComplexGrouping
+        useComplexGrouping = EditorPrefs.GetBool("TransitionEditor/UseComplexGrouping");
+        //ComparisonMode
+        selectedGrouping = (ConditionGroupingType)EditorPrefs.GetInt("TransitionEditor/ComparisonMode");
+    }
 
 
 
+    private void OnEnable() => Deserialize();
+    private void OnDestroy() => Serialize();
 
     [MenuItem("Tools/Condition Splitting Window")]
     public static void ShowWindow()

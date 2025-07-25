@@ -4,6 +4,8 @@ using UnityEngine;
 public static class ComplexGroupingConfig
 {
     public static List<ConditionGroupingType> CurrentRules = new();
+    public static void serialize() => EditorPrefs.SetString("TransitionEditor/ComplexGroupingRules", JsonUtility.ToJson(CurrentRules));
+    public static void deserialize() => CurrentRules = JsonUtility.FromJson<List<ConditionGroupingType>>(EditorPrefs.GetString("TransitionEditor/ComplexGroupingRules"));
 }
 public class ComplexGroupingWindow : EditorWindow
 {
@@ -14,6 +16,8 @@ public class ComplexGroupingWindow : EditorWindow
         var window = GetWindow<ComplexGroupingWindow>("Complex Grouping Setup");
         window.Show();
     }
+    private void onEnable() => ComplexGroupingConfig.deserialize();
+    private void onDestroy() => ComplexGroupingConfig.serialize();
 
     private void OnGUI()
     {
