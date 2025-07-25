@@ -170,9 +170,11 @@ public class TransitionConditionSplitterWindow : EditorWindow
         var mixedParam = group.Any(r => r.condition.parameter != first.condition.parameter);
         var mixedMode = group.Any(r => r.condition.mode != first.condition.mode);
         var mixedThreshold = group.Any(r => !Mathf.Approximately(r.condition.threshold, first.condition.threshold));
-
         EditorGUILayout.BeginHorizontal("box");
-        EditorGUILayout.LabelField($"Group: {groupKey}", GUILayout.Width(100));
+        //EditorGUILayout.LabelField($" {groupKey}", GUILayout.Width(100));
+        Rect labelRect = GUILayoutUtility.GetRect(100, 16, GUILayout.Width(100));
+DrawGroupLabel(labelRect, groupKey);
+
 
         EditorGUI.showMixedValue = mixedParam;
         EditorGUI.BeginChangeCheck();
@@ -208,6 +210,40 @@ public class TransitionConditionSplitterWindow : EditorWindow
         GUILayout.FlexibleSpace();
         EditorGUILayout.LabelField($"{group.Select(r => r.transition).Distinct().Count()}", GUILayout.Width(25));
         EditorGUILayout.EndHorizontal();
+    }
+    public static void DrawGroupLabel(Rect rect, string groupKey)
+    {
+        GUIStyle labelStyle = EditorStyles.label;
+
+        // Calculate label width and prepare truncated text
+        float maxWidth = rect.width;
+        string displayKey = TruncateWithEllipsis(groupKey, maxWidth, labelStyle);
+
+        // Prepare multiline tooltip by splitting the composite key
+        string tooltip = string.Join("\n", groupKey.Split(new[] { "__" }, StringSplitOptions.None));
+
+        // Final content with tooltip
+        GUIContent content = new GUIContent(displayKey, tooltip);
+
+        // Draw the label
+        GUI.Label(rect, content, labelStyle);
+    }
+
+    private static string TruncateWithEllipsis(string input, float maxPixelWidth, GUIStyle style)
+    {
+        string ellipsis = "...";
+
+        if (style.CalcSize(new GUIContent(input)).x <= maxPixelWidth)
+            return input;
+
+        for (int i = input.Length - 1; i > 0; i--)
+        {
+            string substr = input.Substring(0, i) + ellipsis;
+            if (style.CalcSize(new GUIContent(substr)).x <= maxPixelWidth)
+                return substr;
+        }
+
+        return ellipsis;
     }
     private void RefreshSelection()
     {
@@ -262,7 +298,20 @@ public class TransitionConditionSplitterWindow : EditorWindow
         EditorGUILayout.Space(10);
         EditorGUILayout.LabelField($"Grouped Conditions: {conditionRows.Count}", EditorStyles.boldLabel);
 
-        var grouped = ConditionGrouping.GroupRows(conditionRows, selectedGrouping, parameterTypeMap);
+        Dictionary<string, List<ConditionRow>> grouped;
+
+        if (useComplexGrouping && ComplexGroupingConfig.CurrentRules.Count > 0)
+        {
+            grouped = ConditionGrouping.GroupRowsComplex(
+                conditionRows,
+                ComplexGroupingConfig.CurrentRules,
+                parameterTypeMap
+            );
+        }
+        else
+        {
+            grouped = ConditionGrouping.GroupRows(conditionRows, selectedGrouping, parameterTypeMap);
+        }
         scrollPos = EditorGUILayout.BeginScrollView(scrollPos, GUILayout.ExpandHeight(true));
 
         foreach (var kvp in grouped)

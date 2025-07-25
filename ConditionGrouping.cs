@@ -160,5 +160,94 @@ public static class ConditionGrouping
 
         return sorted ?? rows;
     }
-    
+    public static Dictionary<string, List<ConditionRow>> GroupRowsComplex(
+    List<ConditionRow> rows,
+    List<ConditionGroupingType> groupingTypes,
+    Dictionary<string, AnimatorControllerParameterType> parameterTypeMap)
+    {
+        // Build key → grouped list using compound keys
+        var grouped = rows
+            .GroupBy(row => GetCompositeGroupKey(row, groupingTypes
+                .Select(gt => new GroupingContext(gt, parameterTypeMap))
+                .ToList()))
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(r => new ConditionRow(r)).ToList()
+            );
+
+        // Sort keys by layered sort rules
+        var sortedKeys = grouped.Keys
+            .OrderBy(k => k, new CompositeKeyComparer(groupingTypes))
+            .ToList();
+
+        return sortedKeys.ToDictionary(k => k, k => grouped[k]);
+    }
+    public class CompositeKeyComparer : IComparer<string>
+    {
+        private readonly List<ConditionGroupingType> sortRules;
+
+        public CompositeKeyComparer(List<ConditionGroupingType> rules)
+        {
+            sortRules = rules;
+        }
+
+        public int Compare(string x, string y)
+        {
+            var xParts = x.Split("__");
+            var yParts = y.Split("__");
+
+            for (int i = 0; i < sortRules.Count; i++)
+            {
+                string a = i < xParts.Length ? xParts[i] : "";
+                string b = i < yParts.Length ? yParts[i] : "";
+
+                int result = CompareByRule(a, b, sortRules[i]);
+                if (result != 0)
+                    return result;
+            }
+
+            return 0;
+        }
+
+        private int CompareByRule(string a, string b, ConditionGroupingType rule)
+        {
+            return rule switch
+            {
+                ConditionGroupingType.ThresholdValue =>
+                    float.TryParse(a, out var va) && float.TryParse(b, out var vb)
+                        ? va.CompareTo(vb)
+                        : a.CompareTo(b),
+
+                ConditionGroupingType.ParameterType =>
+                    Enum.TryParse(a, out AnimatorControllerParameterType ta) &&
+                    Enum.TryParse(b, out AnimatorControllerParameterType tb)
+                        ? ((int)ta).CompareTo((int)tb)
+                        : a.CompareTo(b),
+
+                ConditionGroupingType.ComparisonMode =>
+                    Enum.TryParse(a, out AnimatorConditionMode ma) &&
+                    Enum.TryParse(b, out AnimatorConditionMode mb)
+                        ? ((int)ma).CompareTo((int)mb)
+                        : a.CompareTo(b),
+
+                ConditionGroupingType.FromNode or ConditionGroupingType.ToNode =>
+                    GetNodeWeight(a).CompareTo(GetNodeWeight(b)) != 0
+                        ? GetNodeWeight(a).CompareTo(GetNodeWeight(b))
+                        : a.CompareTo(b),
+
+                _ => a.CompareTo(b)
+            };
+        }
+
+        private int GetNodeWeight(string name)
+        {
+            return name switch
+            {
+                "Any State" => 0,
+                "Entry" => 1,
+                "Exit" => 2,
+                _ => 3
+            };
+        }
+    }
 }
