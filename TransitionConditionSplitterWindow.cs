@@ -141,6 +141,57 @@ public class TransitionConditionSplitterWindow : EditorWindow
         }
     }
 
+    private void DrawGroupingSelector()
+    {
+        EditorGUILayout.LabelField("Group Conditions By", EditorStyles.boldLabel);
+        selectedGrouping = (ConditionGroupingType)EditorGUILayout.EnumPopup(selectedGrouping);
+    }
+
+    private void DrawGroupedRow(string groupKey, List<ConditionRow> group)
+    {
+        var first = group[0];
+        var mixedParam = group.Any(r => r.condition.parameter != first.condition.parameter);
+        var mixedMode = group.Any(r => r.condition.mode != first.condition.mode);
+        var mixedThreshold = group.Any(r => !Mathf.Approximately(r.condition.threshold, first.condition.threshold));
+
+        EditorGUILayout.BeginHorizontal("box");
+        EditorGUILayout.LabelField($"Group: {groupKey}", GUILayout.Width(100));
+
+        EditorGUI.showMixedValue = mixedParam;
+        EditorGUI.BeginChangeCheck();
+        string newParam = EditorGUILayout.TextField(first.condition.parameter, GUILayout.Width(120));
+        if (EditorGUI.EndChangeCheck())
+        {
+            foreach (var r in group) r.condition.parameter = newParam;
+            foreach (var r in group) r.mixedParameter = false;
+        }
+
+        EditorGUI.showMixedValue = mixedMode;
+        EditorGUI.BeginChangeCheck();
+        var newMode = (AnimatorConditionMode)EditorGUILayout.EnumPopup(first.condition.mode, GUILayout.Width(80));
+        if (EditorGUI.EndChangeCheck())
+        {
+            foreach (var r in group) r.condition.mode = newMode;
+            foreach (var r in group) r.mixedMode = false;
+        }
+
+        if (newMode is AnimatorConditionMode.Equals or AnimatorConditionMode.NotEqual or AnimatorConditionMode.Greater or AnimatorConditionMode.Less)
+        {
+            EditorGUI.showMixedValue = mixedThreshold;
+            EditorGUI.BeginChangeCheck();
+            float newThreshold = EditorGUILayout.FloatField(first.condition.threshold, GUILayout.Width(80));
+            if (EditorGUI.EndChangeCheck())
+            {
+                foreach (var r in group) r.condition.threshold = newThreshold;
+                foreach (var r in group) r.mixedThreshold = false;
+            }
+        }
+
+        EditorGUI.showMixedValue = false;
+        GUILayout.FlexibleSpace();
+        EditorGUILayout.LabelField($"{group.Select(r => r.transition).Distinct().Count()}", GUILayout.Width(25));
+        EditorGUILayout.EndHorizontal();
+    }
     private void RefreshSelection()
     {
         conditionRows.Clear();
@@ -243,59 +294,5 @@ public class TransitionConditionSplitterWindow : EditorWindow
                 RefreshSelection();
             }
         }
-    }
-
-
-
-    private void DrawGroupingSelector()
-    {
-        EditorGUILayout.LabelField("Group Conditions By", EditorStyles.boldLabel);
-        selectedGrouping = (ConditionGroupingType)EditorGUILayout.EnumPopup(selectedGrouping);
-    }
-
-    private void DrawGroupedRow(string groupKey, List<ConditionRow> group)
-    {
-        var first = group[0];
-        var mixedParam = group.Any(r => r.condition.parameter != first.condition.parameter);
-        var mixedMode = group.Any(r => r.condition.mode != first.condition.mode);
-        var mixedThreshold = group.Any(r => !Mathf.Approximately(r.condition.threshold, first.condition.threshold));
-
-        EditorGUILayout.BeginHorizontal("box");
-        EditorGUILayout.LabelField($"Group: {groupKey}", GUILayout.Width(100));
-
-        EditorGUI.showMixedValue = mixedParam;
-        EditorGUI.BeginChangeCheck();
-        string newParam = EditorGUILayout.TextField(first.condition.parameter, GUILayout.Width(120));
-        if (EditorGUI.EndChangeCheck())
-        {
-            foreach (var r in group) r.condition.parameter = newParam;
-            foreach (var r in group) r.mixedParameter = false;
-        }
-
-        EditorGUI.showMixedValue = mixedMode;
-        EditorGUI.BeginChangeCheck();
-        var newMode = (AnimatorConditionMode)EditorGUILayout.EnumPopup(first.condition.mode, GUILayout.Width(80));
-        if (EditorGUI.EndChangeCheck())
-        {
-            foreach (var r in group) r.condition.mode = newMode;
-            foreach (var r in group) r.mixedMode = false;
-        }
-
-        if (newMode is AnimatorConditionMode.Equals or AnimatorConditionMode.NotEqual or AnimatorConditionMode.Greater or AnimatorConditionMode.Less)
-        {
-            EditorGUI.showMixedValue = mixedThreshold;
-            EditorGUI.BeginChangeCheck();
-            float newThreshold = EditorGUILayout.FloatField(first.condition.threshold, GUILayout.Width(80));
-            if (EditorGUI.EndChangeCheck())
-            {
-                foreach (var r in group) r.condition.threshold = newThreshold;
-                foreach (var r in group) r.mixedThreshold = false;
-            }
-        }
-
-        EditorGUI.showMixedValue = false;
-        GUILayout.FlexibleSpace();
-        EditorGUILayout.LabelField($"{group.Select(r => r.transition).Distinct().Count()}", GUILayout.Width(25));
-        EditorGUILayout.EndHorizontal();
     }
 }
