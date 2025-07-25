@@ -1,7 +1,3 @@
-using UnityEditor;
-using UnityEditor.Animations;
-using UnityEngine;
-
 public static class UnifiedUtils
 {
     public static bool TryGetUnifiedFloat(
@@ -91,6 +87,50 @@ public static class UnifiedUtils
         EditorGUI.showMixedValue = !isUnified;
         bool newValue = EditorGUILayout.Toggle(label, cachedValue);
         EditorGUI.showMixedValue = false;
+        return newValue;
+    }
+    public static bool TryGetUnifiedEnum<TEnum>(
+    AnimatorTransitionBase[] transitions,
+    Func<AnimatorStateTransition, TEnum> selector,
+    out TEnum unifiedValue
+) where TEnum : struct, Enum
+    {
+        unifiedValue = default;
+        bool hasReference = false;
+
+        foreach (var t in transitions)
+        {
+            if (t is AnimatorStateTransition stateTransition)
+            {
+                TEnum value = selector(stateTransition);
+                if (!hasReference)
+                {
+                    unifiedValue = value;
+                    hasReference = true;
+                }
+                else if (!EqualityComparer<TEnum>.Default.Equals(unifiedValue, value))
+                {
+                    return false;
+                }
+            }
+        }
+
+        return hasReference;
+    }
+    public static TEnum DrawUnifiedEnumPopup<TEnum>(
+    string label,
+    AnimatorTransitionBase[] transitions,
+    Func<AnimatorStateTransition, TEnum> selector,
+    ref TEnum cachedValue
+) where TEnum : struct, Enum
+    {
+        bool isUnified = TryGetUnifiedEnum(transitions, selector, out TEnum liveValue);
+        if (isUnified) cachedValue = liveValue;
+
+        EditorGUI.showMixedValue = !isUnified;
+        TEnum newValue = (TEnum)EditorGUILayout.EnumPopup(label, cachedValue);
+        EditorGUI.showMixedValue = false;
+
         return newValue;
     }
 }
