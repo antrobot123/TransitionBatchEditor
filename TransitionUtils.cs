@@ -180,5 +180,6 @@ class TransitionUtils
     {
         return controller.parameters.Select(p => p.name).ToArray();
     }
+    public static bool NeedsThreshold(AnimatorControllerParameterType type) => type is AnimatorControllerParameterType.Float or AnimatorControllerParameterType.Int;
 }
 

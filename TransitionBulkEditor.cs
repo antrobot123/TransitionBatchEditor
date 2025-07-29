@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System;
 
-public class TransitionConditionSplitterWindow : EditorWindow
+public class TransitionBulkEditor : EditorWindow
 {
     private BulkSelectionMode bulkMode = BulkSelectionMode.SelectedOnly;
     private List<string> specificLayerNames = new();
@@ -62,10 +62,10 @@ public class TransitionConditionSplitterWindow : EditorWindow
         Serialize();
     }
 
-    [MenuItem("Tools/Condition Splitting Window")]
+    [MenuItem("antrobot/Transition Bulk Editor")]
     public static void ShowWindow()
     {
-        GetWindow<TransitionConditionSplitterWindow>("Condition Splitting");
+        GetWindow<TransitionBulkEditor>("Transition Bulk Editor");
     }
 
     private void OnFocus() => RefreshSelection();

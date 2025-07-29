@@ -15,6 +15,8 @@ public enum ConditionGroupingType
     ToNode, //group by what node the transition goes to
     All //group all transitions into a single group
 }
+public enum FloatConditionMode { Equals, NotEqual, Greater, Less }
+public enum boolConditionMode { If, IfNot }
 #nullable enable
 public struct GroupingContext
 {
