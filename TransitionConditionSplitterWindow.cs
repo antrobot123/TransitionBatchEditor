@@ -22,7 +22,7 @@ public class TransitionConditionSplitterWindow : EditorWindow
     private bool useComplexGrouping = false;
     Dictionary<string, List<ConditionRow>> grouped;
     string[] ValidNames = { };
-int selectedIndex;
+    int selectedIndex;
 
 
     private void Serialize()
@@ -52,10 +52,15 @@ int selectedIndex;
 
     private void OnEnable()
     {
+        Undo.undoRedoPerformed += OnUndoRedo;
         Deserialize();
         RecalculateGrouping();
     }
-    private void OnDestroy() => Serialize();
+    private void OnDestroy()
+    {
+        Undo.undoRedoPerformed -= OnUndoRedo;
+        Serialize();
+    }
 
     [MenuItem("Tools/Condition Splitting Window")]
     public static void ShowWindow()
@@ -336,7 +341,11 @@ int selectedIndex;
 
         EditorGUILayout.Space(10);
         EditorGUILayout.LabelField($"Grouped Conditions: {conditionRows.Count}", EditorStyles.boldLabel);
-
+        //if we have no grouped conditions but we do have selected transitions, then we need to recalculate
+        if (grouped.Count == 0 && selectedTransitions.Length > 0)
+        {
+            UpdateGrouping = true;
+        }
 
         if (UpdateGrouping)
         {
@@ -356,8 +365,9 @@ int selectedIndex;
         using (new EditorGUILayout.HorizontalScope())
         {
             if (GUILayout.Button("Apply Changes"))
-                UpdateGrouping = true;
             {
+                UpdateGrouping = true;
+
                 foreach (var kvp in grouped)
                 {
                     var group = kvp.Value;
@@ -370,6 +380,7 @@ int selectedIndex;
                         if (row.conditionIndex < conditions.Length)
                         {
                             Undo.RecordObject(t, "Grouped Condition Edit");
+                            Debug.Log($"Applying changes to {t.GetDisplayName(ResolveControllerFromSelection())}");
 
                             var c = conditions[row.conditionIndex];
                             if (!group.Any(r => r.mixedParameter)) c.parameter = first.condition.parameter;
@@ -410,10 +421,9 @@ int selectedIndex;
 
         UpdateGrouping = false;
     }
-    private void OnUndoPerformed()
+    private void OnUndoRedo()
     {
-        UpdateGrouping = true;
-        RefreshSelection();
+        RecalculateGrouping();
         Repaint();
     }
 }

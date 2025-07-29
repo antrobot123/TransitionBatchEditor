@@ -11,6 +11,7 @@ public class ConditionRow
         public bool mixedMode;
         public bool mixedThreshold;
         
+        
         public string fromStateName; // 🧠 stores the source node name
 
 
