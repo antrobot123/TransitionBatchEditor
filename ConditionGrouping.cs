@@ -84,8 +84,22 @@ public static class ConditionGrouping
             // Alphabetical sort fallback
             _ => grouped.Keys.OrderBy(k => k).ToList()
         };
+        // Step 3: calculate mixed fields (mixedParameter, mixedThreshold, mixedTransition)
 
-        // Step 3: Build a new dictionary using the sorted key order
+        foreach (var key in sortedKeys)
+        {
+            var mixedParam = grouped[key].Any(r => r.condition.parameter != grouped[key][0].condition.parameter);
+            var mixedMode = grouped[key].Any(r => r.condition.mode != grouped[key][0].condition.mode);
+            var mixedThreshold = grouped[key].Any(r => !Mathf.Approximately(r.condition.threshold, grouped[key][0].condition.threshold));
+
+            foreach (var r in grouped[key])
+            {
+                r.mixedParameter = mixedParam;
+                r.mixedMode = mixedMode;
+                r.mixedThreshold = mixedThreshold;
+            }
+        }
+        // Step 4: Build a new dictionary using the sorted key order
         return sortedKeys.ToDictionary(k => k, k => grouped[k]);
     }
 

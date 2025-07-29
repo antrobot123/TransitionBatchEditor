@@ -10,6 +10,7 @@ public class TransitionConditionSplitterWindow : EditorWindow
     private BulkSelectionMode bulkMode = BulkSelectionMode.SelectedOnly;
     private List<string> specificLayerNames = new();
     private BulkSelectionMode lastBulkMode = BulkSelectionMode.SelectedOnly;
+    private bool UpdateGrouping = true;
 
 
     private AnimatorTransitionBase[] selectedTransitions;
@@ -19,8 +20,13 @@ public class TransitionConditionSplitterWindow : EditorWindow
     Vector2 scrollPos;
     private string layerInputBuffer = "";
     private bool useComplexGrouping = false;
+    Dictionary<string, List<ConditionRow>> grouped;
+    string[] ValidNames = { };
+int selectedIndex;
 
-    private void Serialize(){
+
+    private void Serialize()
+    {
         //BulkSelectionMode
         EditorPrefs.SetInt("TransitionEditor/BulkSelectionMode", (int)bulkMode);
         //specificLayerNames
@@ -30,7 +36,8 @@ public class TransitionConditionSplitterWindow : EditorWindow
         //ComparisonMode
         EditorPrefs.SetInt("TransitionEditor/ComparisonMode", (int)selectedGrouping);
     }
-    private void Deserialize(){
+    private void Deserialize()
+    {
         //BulkSelectionMode
         bulkMode = (BulkSelectionMode)EditorPrefs.GetInt("TransitionEditor/BulkSelectionMode");
         //specificLayerNames
@@ -43,7 +50,11 @@ public class TransitionConditionSplitterWindow : EditorWindow
 
 
 
-    private void OnEnable() => Deserialize();
+    private void OnEnable()
+    {
+        Deserialize();
+        RecalculateGrouping();
+    }
     private void OnDestroy() => Serialize();
 
     [MenuItem("Tools/Condition Splitting Window")]
@@ -55,6 +66,7 @@ public class TransitionConditionSplitterWindow : EditorWindow
     private void OnFocus() => RefreshSelection();
     private void OnSelectionChange()
     {
+        UpdateGrouping = true;
         RefreshSelection();
         Repaint();
     }
@@ -195,12 +207,16 @@ public class TransitionConditionSplitterWindow : EditorWindow
         EditorGUILayout.BeginHorizontal("box");
         //EditorGUILayout.LabelField($" {groupKey}", GUILayout.Width(100));
         Rect labelRect = GUILayoutUtility.GetRect(100, 16, GUILayout.Width(100));
-DrawGroupLabel(labelRect, groupKey);
+        DrawGroupLabel(labelRect, groupKey);
 
 
         EditorGUI.showMixedValue = mixedParam;
         EditorGUI.BeginChangeCheck();
-        string newParam = EditorGUILayout.TextField(first.condition.parameter, GUILayout.Width(120));
+        selectedIndex = Array.IndexOf(ValidNames, first.condition.parameter);
+        if (selectedIndex == -1) selectedIndex = 0; // fallback if value isn't found
+
+        selectedIndex = EditorGUILayout.Popup(selectedIndex, ValidNames, GUILayout.Width(120));
+        var newParam = ValidNames[selectedIndex];
         if (EditorGUI.EndChangeCheck())
         {
             foreach (var r in group) r.condition.parameter = newParam;
@@ -273,6 +289,7 @@ DrawGroupLabel(labelRect, groupKey);
         selectedTransitions = Selection.objects.OfType<AnimatorTransitionBase>().ToArray();
 
         var controller = ResolveControllerFromSelection();
+        ValidNames = TransitionUtils.GetParameterNames(controller);
 
         if (controller == null) return;
 
@@ -309,7 +326,7 @@ DrawGroupLabel(labelRect, groupKey);
         BuildParameterTypeMap();
     }
 
-    private void OnGUI()
+    private void OnGUI() //
     {
         EditorGUILayout.LabelField("Condition Splitter", EditorStyles.boldLabel);
 
@@ -320,19 +337,10 @@ DrawGroupLabel(labelRect, groupKey);
         EditorGUILayout.Space(10);
         EditorGUILayout.LabelField($"Grouped Conditions: {conditionRows.Count}", EditorStyles.boldLabel);
 
-        Dictionary<string, List<ConditionRow>> grouped;
 
-        if (useComplexGrouping && ComplexGroupingConfig.CurrentRules.Count > 0)
+        if (UpdateGrouping)
         {
-            grouped = ConditionGrouping.GroupRowsComplex(
-                conditionRows,
-                ComplexGroupingConfig.CurrentRules,
-                parameterTypeMap
-            );
-        }
-        else
-        {
-            grouped = ConditionGrouping.GroupRows(conditionRows, selectedGrouping, parameterTypeMap);
+            RecalculateGrouping();
         }
         scrollPos = EditorGUILayout.BeginScrollView(scrollPos, GUILayout.ExpandHeight(true));
 
@@ -348,6 +356,7 @@ DrawGroupLabel(labelRect, groupKey);
         using (new EditorGUILayout.HorizontalScope())
         {
             if (GUILayout.Button("Apply Changes"))
+                UpdateGrouping = true;
             {
                 foreach (var kvp in grouped)
                 {
@@ -379,8 +388,32 @@ DrawGroupLabel(labelRect, groupKey);
 
             if (GUILayout.Button("Refresh"))
             {
+                UpdateGrouping = true;
                 RefreshSelection();
             }
         }
+    }
+    private void RecalculateGrouping()
+    {
+        if (useComplexGrouping && ComplexGroupingConfig.CurrentRules.Count > 0)
+        {
+            grouped = ConditionGrouping.GroupRowsComplex(
+                conditionRows,
+                ComplexGroupingConfig.CurrentRules,
+                parameterTypeMap
+            );
+        }
+        else
+        {
+            grouped = ConditionGrouping.GroupRows(conditionRows, selectedGrouping, parameterTypeMap);
+        }
+
+        UpdateGrouping = false;
+    }
+    private void OnUndoPerformed()
+    {
+        UpdateGrouping = true;
+        RefreshSelection();
+        Repaint();
     }
 }
