@@ -10,7 +10,7 @@ public class TransitionBulkEditor : EditorWindow
     private BulkSelectionMode bulkMode = BulkSelectionMode.SelectedOnly;
     private List<string> specificLayerNames = new();
     private BulkSelectionMode lastBulkMode = BulkSelectionMode.SelectedOnly;
-    private bool UpdateGrouping = true;
+    public bool UpdateGrouping = true;
 
 
     private AnimatorTransitionBase[] selectedTransitions;
@@ -147,6 +147,7 @@ public class TransitionBulkEditor : EditorWindow
         {
             lastBulkMode = newMode;
             bulkMode = newMode;
+            RecalculateGrouping();
             RefreshSelection(); // ✅ Trigger refresh on mode change
         }
 
@@ -185,17 +186,19 @@ public class TransitionBulkEditor : EditorWindow
         EditorGUILayout.LabelField("Group Conditions By", EditorStyles.boldLabel);
 
         useComplexGrouping = EditorGUILayout.ToggleLeft("Use Complex Grouping", useComplexGrouping);
-
         if (!useComplexGrouping)
         {
+            EditorGUI.BeginChangeCheck();
             selectedGrouping = (ConditionGroupingType)EditorGUILayout.EnumPopup(selectedGrouping);
+            if (EditorGUI.EndChangeCheck())
+                RecalculateGrouping();
         }
         else
         {
             if (GUILayout.Button("Configure Complex Grouping..."))
-                ComplexGroupingWindow.ShowWindow(); // 👇 opens the composer
+                ComplexGroupingWindow.ShowWindow(this); // 👇 opens the composer
         }
-        if (useComplexGrouping && ComplexGroupingConfig.CurrentRules.Count == 0)
+        if (useComplexGrouping && ComplexGroupingConfig.CurrentRules != null && ComplexGroupingConfig.CurrentRules.Count == 0)
         {
             EditorGUILayout.HelpBox("No rules selected. Open Configurator to add.", MessageType.Info);
             return false;
@@ -333,7 +336,7 @@ public class TransitionBulkEditor : EditorWindow
 
     private void OnGUI() //
     {
-        EditorGUILayout.LabelField("Condition Splitter", EditorStyles.boldLabel);
+        //EditorGUILayout.LabelField("Condition Splitter", EditorStyles.boldLabel);
 
         DrawBulkModeSelector();
         if (ShowSelectionWarning()) return;
@@ -404,9 +407,9 @@ public class TransitionBulkEditor : EditorWindow
             }
         }
     }
-    private void RecalculateGrouping()
+    public void RecalculateGrouping()
     {
-        if (useComplexGrouping && ComplexGroupingConfig.CurrentRules.Count > 0)
+        if (useComplexGrouping && ComplexGroupingConfig.CurrentRules != null && ComplexGroupingConfig.CurrentRules.Count > 0)
         {
             grouped = ConditionGrouping.GroupRowsComplex(
                 conditionRows,
